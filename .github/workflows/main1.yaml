@@ -1,0 +1,52 @@
+name: Build Chromium
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    name: Build Chromium
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install Chocolatey
+      run: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+      shell: pwsh
+
+    - name: Install Ninja
+      run: |
+        choco install ninja -y
+      shell: pwsh
+
+    - name: Install depot_tools
+      run: |
+        git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+        $depotPath = "$PWD\depot_tools"
+        Set-Item -Path Env:PATH -Value "$Env:PATH;$depotPath"
+      shell: pwsh
+
+    - name: Configure Chromium build
+      run: |
+        mkdir chromium
+        cd chromium
+        git clone https://chromium.googlesource.com/chromium/src.git
+        $depotPath = "$PWD\src\tools\depot_tools"
+        Set-Item -Path Env:PATH -Value "$Env:PATH;$depotPath"
+        cd src
+        cmd /c "build\install-build-deps.bat"
+      shell: pwsh
+
+    - name: Build Chromium
+      run: |
+        cd chromium\src
+        gn gen out/Default
+        ninja -C out/Default chrome
+
+    - name: Archive Chromium build
+      uses: actions/upload-artifact@v2
+      with:
+        name: chromium-build
+        path: chromium\src\out\Default
