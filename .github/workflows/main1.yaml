@@ -32,6 +32,6 @@ jobs:
         [System.Convert]::FromBase64String((Get-Content 'install-build-deps.py' -Raw)) | Set-Content 'install-build-deps.py_decoded'
         
         # Install build dependencies
-        python install-build-deps.py_decoded
+        python install-build-deps.py_decoded || exit 1
       shell: pwsh
 
