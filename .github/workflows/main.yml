@@ -23,7 +23,10 @@ jobs:
       run: |
         mkdir chromium\src\build
       shell: pwsh
-
+    - name: Check if install-build-deps.bat exists
+      run: |
+        Get-ChildItem chromium/src/build\install-build-deps.bat
+      shell: pwsh
     - name: Install build dependencies
       run: |
         cd chromium/src/build
