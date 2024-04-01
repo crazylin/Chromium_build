@@ -19,20 +19,6 @@ jobs:
         Set-Item -Path Env:PATH -Value "$Env:PATH;$depotPath"
       shell: pwsh
 
-    - name: Create build directory
-      run: |
-        mkdir chromium\src\build
-      shell: pwsh
-    - name: Check if install-build-deps.bat exists
-      run: |
-        Get-ChildItem chromium/src/build\install-build-deps.bat
-      shell: pwsh
-    - name: Install build dependencies
-      run: |
-        cd chromium/src/build
-        cmd /c ".\install-build-deps.bat"
-      shell: pwsh
-
     - name: Install Ninja
       run: |
         choco install ninja -y
@@ -45,6 +31,8 @@ jobs:
         git clone --progress https://chromium.googlesource.com/chromium/src.git
         cd src
         fetch --nohooks --no-history --revision=3945 chromium/src
+        cd build
+        python install-build-deps.py
       shell: pwsh
 
     - name: Configure Chromium build
