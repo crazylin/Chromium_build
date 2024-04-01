@@ -22,9 +22,11 @@ jobs:
       run: |
         mkdir chromium
         cd chromium
-        fetch --nohooks --no-history chromium
+        gclient config --name=src https://chromium.googlesource.com/chromium/src.git
+        gclient sync --no-history
         cd src
-        ./build/install-build-deps.bat
+        .\build\install-build-deps.bat
+      shell: pwsh
 
     - name: Build Chromium
       run: |
