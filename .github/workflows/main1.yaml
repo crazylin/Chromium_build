@@ -26,9 +26,12 @@ jobs:
     - name: Install build dependencies
       run: |
         # Download install-build-deps.py script
-        curl -o install-build-deps.py https://chromium.googlesource.com/chromium/src/+/HEAD/build/install-build-deps.py?format=TEXT
-        base64 -d install-build-deps.py > install-build-deps.py_decoded
+        Invoke-WebRequest -Uri 'https://chromium.googlesource.com/chromium/src/+/HEAD/build/install-build-deps.py?format=TEXT' -OutFile 'install-build-deps.py'
+        
+        # Decode install-build-deps.py script
+        [System.Convert]::FromBase64String((Get-Content 'install-build-deps.py' -Raw)) | Set-Content 'install-build-deps.py_decoded'
         
         # Install build dependencies
         python install-build-deps.py_decoded
       shell: pwsh
+
