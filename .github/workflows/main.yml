@@ -30,7 +30,7 @@ jobs:
         cd chromium
         git clone --progress https://chromium.googlesource.com/chromium/src.git
         cd src
-        fetch --nohooks --no-history --revision=3945 chromium/src
+        git fetch --nohooks --no-history --revision=3945 chromium/src
       shell: pwsh
     - name: Install build dependencies
       run: |
