@@ -22,8 +22,9 @@ jobs:
       run: |
         mkdir chromium
         cd chromium
-        gclient config --name=src https://chromium.googlesource.com/chromium/src.git
-        gclient sync --no-history
+        git clone https://chromium.googlesource.com/chromium/src.git
+        $depotPath = "$PWD\src\tools\depot_tools"
+        Set-Item -Path Env:PATH -Value "$Env:PATH;$depotPath"
         cd src
         .\build\install-build-deps.bat
       shell: pwsh
