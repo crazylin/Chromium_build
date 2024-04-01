@@ -13,7 +13,7 @@ jobs:
 
     - name: Install depot_tools
       run: |
-        git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+        git clone --progress https://chromium.googlesource.com/chromium/tools/depot_tools.git
         $depotPath = "$PWD\depot_tools"
         Set-Item -Path Env:PATH -Value "$Env:PATH;$depotPath"
       shell: pwsh
@@ -23,13 +23,11 @@ jobs:
         choco install ninja -y
       shell: pwsh
 
-    - name: Clone Chromium source code
+    - name: Clone and Fetch Chromium source code
       run: |
-        git clone https://chromium.googlesource.com/chromium/src.git
-      shell: pwsh
-
-    - name: Fetch Chromium source code
-      run: |
+        mkdir chromium
+        cd chromium
+        git clone --progress https://chromium.googlesource.com/chromium/src.git
         cd src
         fetch --nohooks --no-history --revision=3945 chromium/src
       shell: pwsh
