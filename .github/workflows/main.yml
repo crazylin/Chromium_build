@@ -26,7 +26,7 @@ jobs:
         $depotPath = "$PWD\src\tools\depot_tools"
         Set-Item -Path Env:PATH -Value "$Env:PATH;$depotPath"
         cd src
-        .\build\install-build-deps.bat
+        cmd /c "build\install-build-deps.bat"
       shell: pwsh
 
     - name: Build Chromium
