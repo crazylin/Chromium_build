@@ -1,6 +1,7 @@
 name: Build Chromium
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -11,42 +12,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install Chocolatey
-      run: |
-        Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-      shell: pwsh
-
-    - name: Install Ninja
-      run: |
-        choco install ninja -y
-      shell: pwsh
-
     - name: Install depot_tools
       run: |
-        git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+        git clone --progress https://chromium.googlesource.com/chromium/tools/depot_tools.git
         $depotPath = "$PWD\depot_tools"
         Set-Item -Path Env:PATH -Value "$Env:PATH;$depotPath"
       shell: pwsh
 
-    - name: Configure Chromium build
+    - name: Create build directory
       run: |
-        mkdir chromium
-        cd chromium
-        git clone https://chromium.googlesource.com/chromium/src.git
-        $depotPath = "$PWD\src\tools\depot_tools"
-        Set-Item -Path Env:PATH -Value "$Env:PATH;$depotPath"
-        cd src
-        cmd /c "build\install-build-deps.bat"
+        mkdir chromium\src\build
       shell: pwsh
-
-    - name: Build Chromium
+    - name: Install build dependencies
       run: |
-        cd chromium\src
-        gn gen out/Default
-        ninja -C out/Default chrome
-
-    - name: Archive Chromium build
-      uses: actions/upload-artifact@v2
-      with:
-        name: chromium-build
-        path: chromium\src\out\Default
+        # Download install-build-deps.py script
+        curl -o install-build-deps.py https://chromium.googlesource.com/chromium/src/+/HEAD/build/install-build-deps.py?format=TEXT
+        base64 -d install-build-deps.py > install-build-deps.py_decoded
+        
+        # Install build dependencies
+        python install-build-deps.py_decoded
+      shell: pwsh
