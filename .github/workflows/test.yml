@@ -1,0 +1,136 @@
+name: Build Custom Chromium for Windows
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0' # 每周日自动构建一次
+
+env:
+  DEPOT_TOOLS_DIR: depot_tools
+  CHROMIUM_DIR: chromium
+  BUILD_DIR: out/Default
+  ARTIFACT_NAME: chromium-custom-build-win64
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 360 # 6小时超时（编译可能需要很长时间）
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up environment
+      run: |
+        # 安装必要的 Windows 构建工具
+        choco install -y python --version=3.11.0
+        choco install -y git
+        choco install -y 7zip
+        choco install -y visualstudio2022-workload-vctools
+        choco install -y windows-sdk-10.0
+
+        # 设置 Python 环境
+        python -m pip install --upgrade pip
+        python -m pip install setuptools wheel
+
+    - name: Install depot_tools
+      run: |
+        git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git %DEPOT_TOOLS_DIR%
+        echo "%GITHUB_WORKSPACE%\%DEPOT_TOOLS_DIR%" >> %GITHUB_PATH%
+
+    - name: Fetch Chromium source
+      run: |
+        mkdir %CHROMIUM_DIR%
+        cd %CHROMIUM_DIR%
+        fetch --nohooks chromium
+        cd src
+        gclient runhooks
+
+    - name: Apply custom patches (optional)
+      run: |
+        # 这里可以添加自定义补丁
+        # 例如启用某些实验性功能或修复特定问题
+        echo "No patches applied in this example"
+
+    - name: Configure build
+      run: |
+        cd %CHROMIUM_DIR%\src
+        gn gen %BUILD_DIR% --args="
+          is_debug=false
+          is_component_build=false
+          enable_nacl=false
+          proprietary_codecs=true
+          ffmpeg_branding=\"Chrome\"
+          enable_widevine=true
+          rtc_use_h264=true
+          rtc_include_opus=true
+          enable_hangout_services_extension=true
+          enable_print_preview=true
+          enable_remoting=true
+          enable_web_speech=true
+          enable_media_session=true
+          enable_webrtc=true
+          enable_plugins=true
+          enable_extensions=true
+          enable_mse_mpeg2ts_stream_parser=true
+          enable_mse_mp2t_stream_parser=true
+          enable_mse_mp4_stream_parser=true
+          enable_mse_webm_stream_parser=true
+          enable_mp3_support=true
+          enable_mp4_support=true
+          enable_webm_support=true
+          enable_flac_support=true
+          enable_ogg_support=true
+          enable_wav_support=true
+          enable_midi_support=true
+          enable_pepper_cdms=true
+          enable_platform_hevc=true
+          enable_platform_dolby_vision=true
+          enable_platform_ac3_eac3_audio=true
+          enable_platform_mpeg_h_audio=true
+          enable_platform_encrypted_dolby_vision=true
+          enable_platform_encrypted_hevc=true
+          enable_platform_encrypted_ac3_eac3_audio=true
+          enable_platform_encrypted_mpeg_h_audio=true
+          target_cpu=\"x64\"
+          target_os=\"win\""
+
+    - name: Build Chromium
+      run: |
+        cd %CHROMIUM_DIR%\src
+        autoninja -C %BUILD_DIR% chrome
+
+    - name: Package build artifacts
+      run: |
+        cd %CHROMIUM_DIR%\src\%BUILD_DIR%
+        7z a %ARTIFACT_NAME%.zip chrome.exe *.dll *.pak icudtl.dat resources locales MEIPreload swiftshader v8_context_snapshot.bin
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: chromium-custom-build-win64
+        path: %CHROMIUM_DIR%\src\%BUILD_DIR%\%ARTIFACT_NAME%.zip
+
+    - name: Create release and upload
+      id: create_release
+      uses: actions/create-release@v1
+      if: success()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: chromium-win-${{ github.run_id }}
+        release_name: Custom Chromium Windows Build ${{ github.run_id }}
+        draft: false
+        prerelease: false
+
+    - name: Upload release asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      if: success()
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: %CHROMIUM_DIR%\src\%BUILD_DIR%\%ARTIFACT_NAME%.zip
+        asset_name: %ARTIFACT_NAME%.zip
+        asset_content_type: application/zip
