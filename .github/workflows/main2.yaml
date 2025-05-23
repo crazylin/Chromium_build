@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag (e.g. v1234)'
+        description: 'V1234'
         required: true
       release_name:
-        description: 'Release name (e.g. Chromium Static Build)'
+        description: 'Chromium Static Build'
         required: true
 
 jobs:
