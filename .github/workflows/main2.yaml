@@ -46,17 +46,17 @@ jobs:
       run: |
         cd Chromium_build\src
         $args = @"
-is_debug=false
-is_component_build=false
-use_static_crt=true
-ffmpeg_branding="Chrome"
-proprietary_codecs=true
-enable_platform_hevc=true
-enable_media_remoting=true
-use_custom_libcxx=false
-target_cpu="x64"
-treat_warnings_as_errors=false
-"@
+        is_debug=false
+        is_component_build=false
+        use_static_crt=true
+        ffmpeg_branding="Chrome"
+        proprietary_codecs=true
+        enable_platform_hevc=true
+        enable_media_remoting=true
+        use_custom_libcxx=false
+        target_cpu="x64"
+        treat_warnings_as_errors=false
+        "@
         $args | Out-File -Encoding ascii args.gn
         gn gen out\Release --args="`r`n$args`r`n"
 
