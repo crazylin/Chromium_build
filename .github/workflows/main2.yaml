@@ -9,79 +9,78 @@ on:
       release_name:
         description: 'Release name (e.g. Chromium Static Build)'
         required: true
-
 jobs:
   build:
-    name: Chromium Static CRT Build
-    runs-on: windows-2022
+    runs-on: windows-latest
+
+    env:
+      DEPOT_TOOLS_WIN_TOOLCHAIN: 0
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-    - name: Install build dependencies
+    - name: Install Dependencies
       shell: powershell
       run: |
-        choco install -y visualstudio2022buildtools visualstudio2022-workload-vctools git python3 7zip
-        git config --global core.autocrlf false
+        choco install python3 -y
+        choco install git -y
 
-    - name: Set DEPOT_TOOLS_WIN_TOOLCHAIN=0
-      shell: powershell
-      run: |
-        echo "DEPOT_TOOLS_WIN_TOOLCHAIN=0" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-    - name: Clone depot_tools
+    - name: Setup depot_tools
       shell: powershell
       run: |
         git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
-        echo "$pwd\\depot_tools" >> $env:GITHUB_PATH
+        $env:PATH += ";$PWD\depot_tools"
+        [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Process")
 
     - name: Fetch Chromium source
       shell: powershell
       run: |
-        mkdir chromium
-        cd chromium
-        fetch --nohooks chromium
-        gclient runhooks
+        mkdir Chromium_build
+        cd Chromium_build
+        echo 'solutions = [{"name": "src", "url": "https://chromium.googlesource.com/chromium/src.git", "managed": False, "custom_deps": {}, "custom_vars": {}}]' > .gclient
+        gclient sync --nohooks
 
-    - name: Configure build args (Static CRT + Audio/Video)
+    - name: Configure Build Args
       shell: powershell
       run: |
-        cd chromium\src
+        cd Chromium_build\src
         $args = @"
-        is_debug=false
-        is_component_build=false
-        use_static_crt=true
-        ffmpeg_branding="Chrome"
-        proprietary_codecs=true
-        enable_platform_hevc=true
-        enable_media_remoting=true
-        use_custom_libcxx=false
-        target_cpu="x64"
-        treat_warnings_as_errors=false
-        "@
-        $args | Out-File -Encoding ASCII args.gn
-        gn gen out\Release --args="`type args.gn`"
+is_debug=false
+is_component_build=false
+use_static_crt=true
+ffmpeg_branding="Chrome"
+proprietary_codecs=true
+enable_platform_hevc=true
+enable_media_remoting=true
+use_custom_libcxx=false
+target_cpu="x64"
+treat_warnings_as_errors=false
+"@
+        $args | Out-File -Encoding ascii args.gn
+        gn gen out\Release --args="`r`n$args`r`n"
 
-    - name: Build Chromium (Release Static CRT)
+    - name: Build Chromium
       shell: powershell
       run: |
-        cd chromium\src
+        cd Chromium_build\src
         ninja -C out\Release chrome
 
-    - name: Archive Build Output
+    - name: Compress Build Output
       shell: powershell
       run: |
-        Compress-Archive -Path chromium\src\out\Release\* -DestinationPath chromium-staticcrt.zip
+        cd Chromium_build\src\out
+        Compress-Archive -Path .\Release\* -DestinationPath ..\..\..\chromium-release.zip
 
-    - name: Upload Release
+    - name: Upload Release Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: chromium-release
+        path: chromium-release.zip
+
+    - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ github.event.inputs.release_tag }}
-        name: ${{ github.event.inputs.release_name }}
-        body: "Automated build: static CRT, proprietary codecs (H.264, HEVC), no VC++ runtime needed."
-        draft: false
-        prerelease: false
-        files: chromium-staticcrt.zip
+        files: chromium-release.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
