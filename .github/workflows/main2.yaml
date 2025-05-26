@@ -25,6 +25,11 @@ jobs:
         choco install -y visualstudio2022buildtools visualstudio2022-workload-vctools git python3 7zip
         git config --global core.autocrlf false
 
+    - name: Set DEPOT_TOOLS_WIN_TOOLCHAIN=0
+      shell: powershell
+      run: |
+        echo "DEPOT_TOOLS_WIN_TOOLCHAIN=0" | Out-File -FilePath $env:GITHUB_ENV -Append
+
     - name: Clone depot_tools
       shell: powershell
       run: |
@@ -74,7 +79,7 @@ jobs:
       with:
         tag_name: ${{ github.event.inputs.release_tag }}
         name: ${{ github.event.inputs.release_name }}
-        body: "Automated build with static CRT, ffmpeg enabled, and no VC++ runtime dependency."
+        body: "Automated build: static CRT, proprietary codecs (H.264, HEVC), no VC++ runtime needed."
         draft: false
         prerelease: false
         files: chromium-staticcrt.zip
