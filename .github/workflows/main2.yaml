@@ -1,50 +1,60 @@
-name: Build Chromium with MP3/Video Support
+name: Build OpenCV Windows Static CRT
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 手动触发
 
 jobs:
-  build-chromium:
-    runs-on: windows-latest
-    env:
-      DEPOT_TOOLS_WIN_TOOLCHAIN: 0
+  build-opencv:
+    runs-on: windows-2022
 
     steps:
-    - name: Checkout
+    - name: Checkout repo
       uses: actions/checkout@v4
 
-    - name: Setup depot_tools
-      run: |
-        git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
-        echo "$pwd\\depot_tools" | Out-File -Append -Encoding ascii $env:GITHUB_PATH
-
-    - name: Sync Chromium source
-      run: |
-        mkdir Chromium_build
-        cd Chromium_build
-        Set-Content .gclient 'solutions = [{"name": "src", "url": "https://chromium.googlesource.com/chromium/src.git", "managed": False, "custom_deps": {}, "custom_vars": {}}]'
-        gclient sync --nohooks --no-history
-
-    - name: Generate build args and generate ninja files
+    - name: Setup MSBuild path
       shell: pwsh
       run: |
-        cd Chromium_build\src
-        $args = 'is_debug=false is_component_build=false use_static_crt=true ffmpeg_branding="Chrome" proprietary_codecs=true enable_platform_hevc=true enable_media_remoting=true use_custom_libcxx=false target_cpu="x64" treat_warnings_as_errors=false'
-        gn gen out\Release --args="$args"
+        # 让后续步骤能用 MSBuild 和 cl
+        $vswhere = "${Env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        Write-Host "VS installation path: $vsPath"
+        $env:VSINSTALLDIR = $vsPath
+        $vcvarsall = Join-Path $vsPath 'VC\Auxiliary\Build\vcvarsall.bat'
+        Write-Host "Running vcvarsall.bat"
+        cmd /c "$vcvarsall x64 && set > env.txt"
+        Get-Content env.txt | ForEach-Object {
+          $parts = $_ -split '=', 2
+          if ($parts.Length -eq 2) {
+            Write-Host "##vso[task.setvariable variable=$($parts[0])]$($parts[1])"
+          }
+        }
 
+    - name: Create build directory
+      run: mkdir build
 
-    - name: Build Chromium
+    - name: Configure OpenCV with Visual Studio 2022 and static CRT
       run: |
-        cd Chromium_build\src
-        autoninja -C out\Release chrome
+        cd build
+        cmake ..\opencv `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_INSTALL_PREFIX=install `
+          -DBUILD_SHARED_LIBS=OFF `
+          -DBUILD_TESTS=OFF `
+          -DBUILD_PERF_TESTS=OFF `
+          -DOPENCV_EXTRA_MODULES_PATH=..\opencv_contrib\modules `
+          -G "Visual Studio 17 2022" `
+          -A x64 `
+          -T host=x64 `
+          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 
-    - name: Compress out/Release
-      run: |
-        cd Chromium_build\src\out
-        Compress-Archive -Path Release -DestinationPath $env:RUNNER_TEMP\ChromiumBuild.zip
+    - name: Build OpenCV Release
+      run: cmake --build build --config Release
 
-    - name: Upload Artifact
+    - name: Install OpenCV
+      run: cmake --install build --config Release
+
+    - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ChromiumBuild
-        path: ${{ runner.temp }}\ChromiumBuild.zip
+        name: OpenCV-windows-static
+        path: build/install
