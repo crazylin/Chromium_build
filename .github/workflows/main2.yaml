@@ -26,10 +26,12 @@ jobs:
         gclient sync --nohooks --no-history
 
     - name: Generate build args and generate ninja files
+      shell: pwsh
       run: |
         cd Chromium_build\src
         $args = 'is_debug=false is_component_build=false use_static_crt=true ffmpeg_branding="Chrome" proprietary_codecs=true enable_platform_hevc=true enable_media_remoting=true use_custom_libcxx=false target_cpu="x64" treat_warnings_as_errors=false'
         gn gen out\Release --args="$args"
+
 
     - name: Build Chromium
       run: |
