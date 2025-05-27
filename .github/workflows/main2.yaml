@@ -1,14 +1,8 @@
-name: Build Chromium Static CRT (Auto Release)
+name: Build Chromium
 
 on:
   workflow_dispatch:
-    inputs:
-      release_tag:
-        description: 'Release tag (e.g. v1234)'
-        required: true
-      release_name:
-        description: 'Release name (e.g. Chromium Static Build)'
-        required: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -17,35 +11,36 @@ jobs:
       DEPOT_TOOLS_WIN_TOOLCHAIN: 0
 
     steps:
-    - name: Checkout repository
+    - name: Checkout (just to init workspace)
       uses: actions/checkout@v3
 
-    - name: Install Dependencies
-      shell: powershell
-      run: |
-        choco install python3 -y
-        choco install git -y
-
-    - name: Setup depot_tools
-      shell: powershell
+    - name: Clone depot_tools
       run: |
         git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
-        $env:PATH += ";$PWD\depot_tools"
-        [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "Process")
+        echo "$env:GITHUB_WORKSPACE\depot_tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-    - name: Fetch Chromium source
-      shell: powershell
+    - name: Create build directory and sync Chromium
       run: |
         mkdir Chromium_build
         cd Chromium_build
-        echo 'solutions = [{"name": "src", "url": "https://chromium.googlesource.com/chromium/src.git", "managed": False, "custom_deps": {}, "custom_vars": {}}]' > .gclient
-        gclient sync --nohooks
+        Set-Content -Path ".gclient" -Value @"
+        solutions = [
+          {
+            "name": "src",
+            "url": "https://chromium.googlesource.com/chromium/src.git",
+            "managed": False,
+            "custom_deps": {},
+            "custom_vars": {}
+          }
+        ]
+        "@
+                gclient sync --nohooks
+              shell: pwsh
 
-    - name: Configure Build Args
-      shell: powershell
-      run: |
-        cd Chromium_build\src
-        $args = @"
+            - name: Generate build args
+              run: |
+                cd Chromium_build/src
+                $args = @"
         is_debug=false
         is_component_build=false
         use_static_crt=true
@@ -57,30 +52,25 @@ jobs:
         target_cpu="x64"
         treat_warnings_as_errors=false
         "@
-        $args | Out-File -Encoding ascii args.gn
-        gn gen out\Release --args="`r`n$args`r`n"
+        $args | Out-File -Encoding ASCII args.gn
+        gn gen out\Release --args="`"`n$(Get-Content args.gn -Raw)`"`n"
+      shell: pwsh
 
-    - name: Build Chromium
-      shell: powershell
+    - name: Build Chromium (minimal)
       run: |
-        cd Chromium_build\src
-        ninja -C out\Release chrome
+        cd Chromium_build/src
+        ninja -C out/Release chrome
+      shell: pwsh
 
-    - name: Compress Build Output
-      shell: powershell
+    - name: Compress entire out/Release folder
       run: |
-        cd Chromium_build\src\out
-        Compress-Archive -Path .\Release\* -DestinationPath ..\..\..\chromium-release.zip
+        $source = "Chromium_build\src\out\Release\*"
+        $output = "chromium_build.zip"
+        Compress-Archive -Path $source -DestinationPath $output
+      shell: pwsh
 
-    - name: Upload Release Artifact
-      uses: actions/upload-artifact@v4
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
       with:
-        name: chromium-release
-        path: chromium-release.zip
-
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: chromium-release.zip
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: chromium_build
+        path: chromium_build.zip
