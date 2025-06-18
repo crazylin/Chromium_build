@@ -37,31 +37,28 @@ jobs:
     - name: 获取 Chromium 源码
       run: |
         echo "开始获取 Chromium 源码，这将花费很长时间..."
-        # 创建源码目录
-        mkdir src
-        cd src
-        # 使用 fetch 获取源码，--no-history 表示不下载 git 的历史记录，可以节省大量空间和时间
+        # fetch 会自动创建 src 目录并将源码检出到其中
         fetch --no-history --nohooks chromium
 
     - name: 同步项目依赖
+      working-directory: ./src
       run: |
-        cd src
         echo "开始同步 gclient 依赖，这将花费很长时间..."
         gclient sync
 
     - name: 生成构建配置 (GN)
+      working-directory: ./src
       run: |
-        cd src
         echo "正在生成构建文件..."
         # is_debug=false: 创建 Release 版本
-        # symbol_level=0: 不生成调试符号，可以显著减少编译时间和产物体积
+        # symbol_level=0: 不生成调试符号
         # is_official_build=true: 启用官方构建优化
         # proprietary_codecs=true ffmpeg_branding="Chrome": 启用专有编解码器 (H.264/AAC) 以支持完整的音视频
         gn gen out/Default --args='is_debug=false symbol_level=0 is_official_build=true proprietary_codecs=true ffmpeg_branding="Chrome"'
 
     - name: 编译 Chromium
+      working-directory: ./src
       run: |
-        cd src
         echo "开始编译 Chromium，这是最耗时的一步..."
         autoninja -C out/Default chrome
     
