@@ -54,8 +54,9 @@ jobs:
         # symbol_level=0: 不生成调试符号
         # is_official_build=true: 启用官方构建优化
         # proprietary_codecs=true ffmpeg_branding="Chrome": 启用专有编解码器 (H.264/AAC) 以支持完整的音视频
+        # chrome_pgo_phase=0: 禁用 PGO 优化，避免因缺少 profile 文件而报错
         # 在 PowerShell 中，单引号内的双引号有时会被剥离，我们通过双写双引号 ""Chrome"" 来确保其被当作一个字符串传递
-        gn gen out/Default --args='is_debug=false symbol_level=0 is_official_build=true proprietary_codecs=true ffmpeg_branding=""Chrome""'
+        gn gen out/Default --args='is_debug=false symbol_level=0 is_official_build=true proprietary_codecs=true ffmpeg_branding=""Chrome"" chrome_pgo_phase=0'
 
     - name: 编译 Chromium
       working-directory: ./src
