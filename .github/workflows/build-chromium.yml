@@ -1,72 +1,80 @@
-name: 构建 Chromium (Windows x64)
+name: Build Chromium (Windows x64)
 
 on:
   push:
     branches: [ "main", "master" ]
-  workflow_dispatch: # 允许手动触发
+  workflow_dispatch: # Allows manual triggering
 
 jobs:
   build-chromium-windows:
     runs-on: windows-latest
     
     steps:
-    - name: 检出代码
+    - name: Checkout Code
       uses: actions/checkout@v4
 
-    # - name: 释放磁盘空间
-    #   run: |
-    #     echo "开始清理磁盘空间..."
-    #     # 移除一些不需要的大型预装软件来为 Chromium 腾出空间
-    #     # 警告：这个操作比较激进，但对于 Chromium 编译是必要的。添加 -ErrorAction SilentlyContinue 以防止路径不存在时报错。
-    #     Remove-Item -Recurse -Force "C:\Program Files\dotnet" -ErrorAction SilentlyContinue
-    #     Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Android" -ErrorAction SilentlyContinue
-    #     Remove-Item -Recurse -Force "C:\Users\runneradmin\AppData\Local\Android" -ErrorAction SilentlyContinue
-    #     Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\arm64" -ErrorAction SilentlyContinue
-    #     Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\arm" -ErrorAction SilentlyContinue
-    #     echo "清理完成。"
-    #     # 显示剩余空间
-    #     gci -path C:\ -force -r -ErrorAction SilentlyContinue | measure-object -property length -sum | select @{n="size in GB";e={[math]::round($_.sum/1gb,2)}}
-
-    - name: 安装 depot_tools
+    - name: Install depot_tools
       run: |
         git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git C:\depot_tools
         echo "C:\depot_tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        # 设置环境变量，防止 depot_tools 自动下载旧版 VS
+        # Set env var to prevent depot_tools from auto-downloading an old VS version
         echo "DEPOT_TOOLS_WIN_TOOLCHAIN=0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-    - name: 获取 Chromium 源码
+    - name: Fetch Chromium source code
       run: |
-        echo "开始获取 Chromium 源码，这将花费很长时间..."
-        # fetch 会自动创建 src 目录并将源码检出到其中
+        echo "Fetching Chromium source code. This will take a long time..."
+        # fetch will automatically create the src directory
         fetch --no-history --nohooks chromium
 
-    - name: 同步项目依赖
+    - name: Sync gclient dependencies
       working-directory: ./src
       run: |
-        echo "开始同步 gclient 依赖，这将花费很长时间..."
+        echo "Syncing gclient dependencies. This will take a long time..."
         gclient sync
 
-    - name: 生成构建配置 (GN)
+    - name: Generate build files (GN)
       working-directory: ./src
       run: |
-        echo "正在生成构建文件..."
-        # is_debug=false: 创建 Release 版本
-        # symbol_level=0: 不生成调试符号
-        # is_official_build=true: 启用官方构建优化
-        # proprietary_codecs=true ffmpeg_branding="Chrome": 启用专有编解码器 (H.264/AAC) 以支持完整的音视频
-        # chrome_pgo_phase=0: 禁用 PGO 优化，避免因缺少 profile 文件而报错
-        # 在 PowerShell 中，单引号内的双引号有时会被剥离，我们通过双写双引号 ""Chrome"" 来确保其被当作一个字符串传递
+        echo "Generating build files..."
+        # is_debug=false: Create a Release build
+        # symbol_level=0: Do not generate debug symbols
+        # is_official_build=true: Enable official build optimizations
+        # proprietary_codecs=true ffmpeg_branding="Chrome": Enable proprietary codecs (H.264/AAC)
+        # chrome_pgo_phase=0: Disable PGO to prevent errors from missing profiles
+        # In PowerShell, double quotes inside single quotes can be stripped. We use ""Chrome"" to ensure it's passed as a string.
         gn gen out/Default --args='is_debug=false symbol_level=0 is_official_build=true proprietary_codecs=true ffmpeg_branding=""Chrome"" chrome_pgo_phase=0'
 
-    - name: 编译 Chromium
+    - name: Compile Chromium
       working-directory: ./src
       run: |
-        echo "开始编译 Chromium，这是最耗时的一步..."
+        echo "Compiling Chromium. This is the most time-consuming step..."
         autoninja -C out/Default chrome
     
-    - name: 打包构建产物
-      uses: actions/upload-artifact@v4
+    - name: Prepare package for release
+      run: |
+        echo "Creating README for the release..."
+        $gn_args = "is_debug=false symbol_level=0 is_official_build=true proprietary_codecs=true ffmpeg_branding='Chrome' chrome_pgo_phase=0"
+        $build_date = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss "UTC"')
+        $readme_content = @"
+        # Chromium Build
+
+        - **Build Date:** $build_date
+        - **Branch/Commit:** ${{ github.ref }} @ ${{ github.sha }}
+
+        ## GN Arguments
+        ```
+        $gn_args
+        ```
+        "@
+        $readme_content | Out-File -FilePath "README.md" -Encoding utf8
+
+        echo "Compressing build output..."
+        Compress-Archive -Path src/out/Default/* -DestinationPath "chromium-win64.zip"
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
       with:
-        name: chromium-windows-x64
-        path: src/out/Default/
-        # 警告：构建产物非常大，上传可能会很慢 
+        tag_name: build-${{ github.run_number }}
+        name: Build #${{ github.run_number }}
+        files: |
+          chromium-win64.zip
