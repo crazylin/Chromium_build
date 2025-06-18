@@ -17,12 +17,12 @@ jobs:
       run: |
         echo "开始清理磁盘空间..."
         # 移除一些不需要的大型预装软件来为 Chromium 腾出空间
-        # 警告：这个操作比较激进，但对于 Chromium 编译是必要的
-        Remove-Item -Recurse -Force "C:\Program Files\dotnet"
-        Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Android"
-        Remove-Item -Recurse -Force "C:\Users\runneradmin\AppData\Local\Android"
-        Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\arm64"
-        Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\arm"
+        # 警告：这个操作比较激进，但对于 Chromium 编译是必要的。添加 -ErrorAction SilentlyContinue 以防止路径不存在时报错。
+        Remove-Item -Recurse -Force "C:\Program Files\dotnet" -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force "C:\hostedtoolcache\windows\Android" -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force "C:\Users\runneradmin\AppData\Local\Android" -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\arm64" -ErrorAction SilentlyContinue
+        Remove-Item -Recurse -Force "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\*\arm" -ErrorAction SilentlyContinue
         echo "清理完成。"
         # 显示剩余空间
         gci -path C:\ -force -r -ErrorAction SilentlyContinue | measure-object -property length -sum | select @{n="size in GB";e={[math]::round($_.sum/1gb,2)}}
