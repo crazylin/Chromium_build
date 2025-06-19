@@ -4,6 +4,11 @@ on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch: # Allows manual triggering
+    inputs:
+      chromium_version:
+        description: 'Chromium version tag (e.g., 126.0.6478.57). Leave empty for latest.'
+        required: false
+        default: ''
 
 jobs:
   build-chromium-windows:
@@ -26,11 +31,20 @@ jobs:
         # fetch will automatically create the src directory
         fetch --no-history --nohooks chromium
 
+    - name: Checkout specific version (if specified)
+      if: github.event.inputs.chromium_version != ''
+      working-directory: ./src
+      run: |
+        echo "Checking out version tag: ${{ github.event.inputs.chromium_version }}"
+        git fetch --tags
+        git checkout tags/${{ github.event.inputs.chromium_version }}
+
     - name: Sync gclient dependencies
       working-directory: ./src
       run: |
         echo "Syncing gclient dependencies. This will take a long time..."
-        gclient sync
+        # Add --with_branch_heads and --with_tags to sync dependencies correctly for a specific tag/commit
+        gclient sync -D --with_branch_heads --with_tags
 
     - name: Start sccache
       uses: mozilla-actions/sccache-action@v0.0.4
