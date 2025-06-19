@@ -32,6 +32,11 @@ jobs:
         echo "Syncing gclient dependencies. This will take a long time..."
         gclient sync
 
+    - name: Start sccache
+      uses: mozilla-actions/sccache-action@v0.0.4
+      with:
+        version: "v0.8.0" # Specify a recent version of sccache
+
     - name: Generate build files (GN)
       working-directory: ./src
       run: |
@@ -42,14 +47,22 @@ jobs:
         # proprietary_codecs=true ffmpeg_branding="Chrome": Enable proprietary codecs (H.264/AAC)
         # chrome_pgo_phase=0: Disable PGO to prevent errors from missing profiles
         # In PowerShell, double quotes inside single quotes can be stripped. We use ""Chrome"" to ensure it's passed as a string.
-        gn gen out/Default --args='is_debug=false symbol_level=0 is_official_build=true proprietary_codecs=true ffmpeg_branding=""Chrome"" chrome_pgo_phase=0'
+        gn gen out/Default --args='is_debug=false symbol_level=0 is_official_build=true proprietary_codecs=true ffmpeg_branding=""Chrome"" chrome_pgo_phase=0 cc_wrapper=""sccache""'
 
     - name: Compile Chromium
       working-directory: ./src
       run: |
         echo "Compiling Chromium. This is the most time-consuming step..."
+        sccache --zerostats
         autoninja -C out/Default chrome
-    
+        echo "-------------------"
+        echo "SCCACHE STATS"
+        echo "-------------------"
+        sccache --showstats
+
+    - name: Stop sccache
+      run: echo "::stop-commands::sccache-stop"
+
     - name: Prepare package for release
       run: |
         echo "Creating README for the release..."
