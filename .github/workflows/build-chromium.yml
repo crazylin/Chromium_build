@@ -52,7 +52,7 @@ jobs:
         path: |
           ~/.cache/sccache
           ~/.cache/mozilla/sccache
-        key: ${{ runner.os }}-sccache-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-sccache-${{ github.run_id }}
         restore-keys: |
           ${{ runner.os }}-sccache-
 
@@ -93,7 +93,7 @@ jobs:
         path: |
           ~/.cache/sccache
           ~/.cache/mozilla/sccache
-        key: ${{ runner.os }}-sccache-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-sccache-${{ github.run_id }}
         restore-keys: |
           ${{ runner.os }}-sccache-
 
