@@ -46,6 +46,16 @@ jobs:
         # Add --with_branch_heads and --with_tags to sync dependencies correctly for a specific tag/commit
         gclient sync -D --with_branch_heads --with_tags
 
+    - name: Cache sccache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/sccache
+          ~/.cache/mozilla/sccache
+        key: ${{ runner.os }}-sccache-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-sccache-
+
     - name: Start sccache
       uses: mozilla-actions/sccache-action@v0.0.4
       with:
@@ -76,6 +86,16 @@ jobs:
 
     - name: Stop sccache
       run: echo "::stop-commands::sccache-stop"
+
+    - name: Cache sccache (save)
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/sccache
+          ~/.cache/mozilla/sccache
+        key: ${{ runner.os }}-sccache-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-sccache-
 
     - name: Prepare package for release
       run: |
