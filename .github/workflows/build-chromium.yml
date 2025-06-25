@@ -85,9 +85,11 @@ jobs:
         sccache --showstats
 
     - name: Stop sccache
+      if: always() # Always run this step to ensure sccache is stopped.
       run: echo "::stop-commands::sccache-stop"
 
     - name: Cache sccache (save)
+      if: always() # Always run this step to save the cache, even if compilation failed.
       uses: actions/cache@v4
       with:
         path: |
